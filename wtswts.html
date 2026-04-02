@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>Профориентационный бот | 9-11 класс | Вузы СПб</title>
+<style>
+* {
+box-sizing: border-box;
+font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+}
+body {
+background: #e9f0f5;
+margin: 0;
+padding: 20px;
+display: flex;
+justify-content: center;
+align-items: center;
+min-height: 100vh;
+}
+.chat-container {
+max-width: 750px;
+width: 100%;
+background: white;
+border-radius: 32px;
+box-shadow: 0 20px 35px -10px rgba(0,0,0,0.15);
+overflow: hidden;
+display: flex;
+flex-direction: column;
+height: 85vh;
+max-height: 800px;
+}
+.chat-header {
+background: #0b2b40;
+color: white;
+padding: 20px 24px;
+text-align: center;
+}
+.chat-header h1 {
+margin: 0;
+font-size: 1.5rem;
+}
+.chat-header p {
+margin: 6px 0 0;
+opacity: 0.8;
+font-size: 0.85rem;
+}
+.chat-messages {
+flex: 1;
+overflow-y: auto;
+padding: 20px;
+background: #f9fafc;
+display: flex;
+flex-direction: column;
+gap: 12px;
+}
+.message {
+max-width: 85%;
+padding: 12px 18px;
+border-radius: 24px;
+line-height: 1.4;
+font-size: 1rem;
+word-wrap: break-word;
+}
+.bot-message {
+background: #e5e9f0;
+color: #1e2a3a;
+align-self: flex-start;
+border-bottom-left-radius: 6px;
+}
+.user-message {
+background: #0b5e7c;
+color: white;
+align-self: flex-end;
+border-bottom-right-radius: 6px;
+}
+.options-panel {
+padding: 16px 20px;
+background: white;
+border-top: 1px solid #dee2e6;
+display: flex;
+flex-wrap: wrap;
+gap: 10px;
+justify-content: center;
+}
+.option-btn {
+background: #f0f2f5;
+border: 1px solid #cbd5e1;
+padding: 10px 20px;
+border-radius: 60px;
+font-size: 0.9rem;
+font-weight: 500;
+cursor: pointer;
+transition: all 0.2s;
+color: #0b2b40;
+}
+.option-btn:hover {
+background: #0b5e7c;
+color: white;
+border-color: #0b5e7c;
+}
+.small-note {
+font-size: 0.7rem;
+text-align: center;
+padding: 8px;
+background: #f1f3f5;
+color: #4b5563;
+}
+a {
+color: #0b5e7c;
+text-decoration: none;
+}
+a:hover {
+text-decoration: underline;
+}
+</style>
+</head>
+<body>
+<div class="chat-container">
+<div class="chat-header">
+<h1>Профориентационный бот</h1>
+<p>9–11 класс | Выбор профессии, экзамены, вузы Санкт-Петербурга</p>
+</div>
+<div class="chat-messages" id="chatMessages">
+<div class="message bot-message">
+Привет! Я помогу тебе выбрать направление для учёбы, расскажу про экзамены
+и покажу вузы СПб.<br><br>
+Пройдём короткий тест? Нажми «Начать».
+</div>
+</div>
+<div class="options-panel" id="optionsPanel">
+<button class="option-btn" id="startBtn">Начать тест</button>
+</div>
+<div class="small-note">
+* Данные основаны на официальных направлениях подготовки вузов СПб
+</div>
+</div>
+<script>
+let step = 'idle';
+let answers = [];
+let userProfile = null;
+let currentQuestionIndex = 0;
+
+const questions = [
+{ text: "Что тебе интереснее всего?", options: ["Изучать языки, писать тексты, обсуждать историю", "Решать задачи, программировать, разбираться в технике", "Помогать людям, учить, лечить", "Создавать дизайн, рисовать, монтировать видео", "Анализировать финансы, управлять проектами"] },
+{ text: "Какую школьную дисциплину ты предпочитаешь?", options: ["Литература, история, иностранный", "Математика, физика, информатика", "Биология, химия, обществознание", "ИЗО, МХК, технология", "Экономика, обществознание, математика"] },
+{ text: "Какой формат работы ближе?", options: ["Общение, переговоры, консультирование", "Исследования, лаборатория, код", "Забота, наставничество, сервис", "Творчество, эстетика, креатив", "Стратегия, аналитика, бизнес"] },
+{ text: "Выбери навык, который у тебя развит лучше всего:", options: ["Грамотная речь и аргументация", "Логическое и алгоритмическое мышление", "Эмпатия и терпение", "Воображение и чувство стиля", "Организация и лидерство"] },
+{ text: "Где ты видишь себя через 10 лет?", options: ["Журналистика, юриспруденция, преподавание", "IT-сфера, инженерия, наука", "Медицина, психология, образование", "Дизайн, архитектура, искусство", "Бизнес, госуправление, маркетинг"] },
+{ text: "Решение какой задачи тебя вдохновляет?", options: ["Написать сложный текст или выиграть дебаты", "Собрать робота или написать программу", "Помочь другу решить личную проблему", "Создать красивый интерьер или иллюстрацию", "Организовать мероприятие или запустить стартап"] },
+{ text: "Какой предмет ты бы выбрал для углублённого изучения?", options: ["Русский, история, право", "Физика, информатика, математика", "Биология, химия, психология", "Черчение, мировая культура", "Обществознание, экономика"] },
+{ text: "Что важнее в работе?", options: ["Влияние на общество и общение", "Технический прогресс и изобретения", "Помощь конкретным людям", "Свобода самовыражения", "Высокий доход и управление"] },
+{ text: "Вне школы ты чаще всего...", options: ["Читаю книги, веду блог, смотрю кино", "Собираю конструкторы, разбираю гаджеты", "Ухаживаю за младшими/животными, волонтёрю", "Рисую, фотографирую, занимаюсь музыкой", "Планирую дела, участвую в олимпиадах по экономике"] },
+{ text: "Какой тип задач кажется тебе самым интересным?", options: ["Коммуникация и исследования в гуманитарной сфере", "Формулы, чертежи, программирование", "Диагностика, уход, обучение", "Визуализация идей и проектирование", "Бизнес-планы и аналитика данных"] }
+];
+
+const profileMapping = ["Гуманитарный профиль", "Физико-математический / IT", "Естественно-научный / Медицина", "Творческий / Дизайн", "Социально-экономический"];
+
+const examPlan = {
+"Гуманитарный профиль": { "9 класс (ОГЭ)": "Русский язык, математика + 2 по выбору: обществознание, иностранный язык, литература, история", "11 класс (ЕГЭ)": "Русский язык, математика (база/профиль) + обществознание / история / литература / иностранный (зависит от вуза)" },
+"Физико-математический / IT": { "9 класс (ОГЭ)": "Русский язык, математика + информатика, физика", "11 класс (ЕГЭ)": "Русский язык, математика (профиль), информатика / физика" },
+"Естественно-научный / Медицина": { "9 класс (ОГЭ)": "Русский язык, математика + биология, химия", "11 класс (ЕГЭ)": "Русский язык, математика (профиль), биология, химия" },
+"Творческий / Дизайн": { "9 класс (ОГЭ)": "Русский язык, математика + литература / информатика / обществознание", "11 класс (ЕГЭ)": "Русский язык, литература / обществознание + творческий конкурс (рисунок, композиция)" },
+"Социально-экономический": { "9 класс (ОГЭ)": "Русский язык, математика + обществознание, география / информатика", "11 класс (ЕГЭ)": "Русский язык, математика (профиль), обществознание" }
+};
+
+const universitiesSPB = {
+"Гуманитарный профиль": [
+{ name: "СПбГУ", faculties: "Филология, История, Журналистика, Юриспруденция", site: "https://spbu.ru" },
+{ name: "РГПУ им. Герцена", faculties: "Институт иностранных языков, Институт истории и социальных наук", site: "https://herzen.spb.ru" },
+{ name: "СПбГУП (Университет профсоюзов)", faculties: "Юриспруденция, Конфликтология, Культурология", site: "https://spbgup.ru" }
+],
+"Физико-математический / IT": [
+{ name: "Университет ИТМО", faculties: "Инфокоммуникации, Программная инженерия, Безопасность", site: "https://itmo.ru" },
+{ name: "СПбПУ (Политех)", faculties: "Институт компьютерных наук, Физико-механический", site: "https://spbstu.ru" },
+{ name: "СПбГУ", faculties: "Математика и механика, Прикладная математика", site: "https://spbu.ru" },
+{ name: "ЛЭТИ", faculties: "Компьютерные технологии, Радиотехника", site: "https://etu.ru" }
+],
+"Естественно-научный / Медицина": [
+{ name: "ПСПбГМУ им. Павлова", faculties: "Лечебное дело, Педиатрия, Стоматология", site: "https://1spbgmu.ru" },
+{ name: "СПбГУ", faculties: "Биология, Химия, Медицина", site: "https://spbu.ru" },
+{ name: "СЗГМУ им. Мечникова", faculties: "Медицина, Фармация", site: "https://szgmu.ru" },
+{ name: "СПбХФУ (химико-фармацевтический)", faculties: "Химическая технология, Фармация", site: "https://spcpu.ru" }
+],
+"Творческий / Дизайн": [
+{ name: "СПГХПА им. Штиглица", faculties: "Дизайн, Монументальное искусство", site: "https://spbghpa.ru" },
+{ name: "СПбГУПТД (Университет промышленных технологий и дизайна)", faculties: "Графический дизайн, Дизайн костюма", site: "https://sutd.ru" },
+{ name: "СПбГИК (Институт культуры)", faculties: "Режиссура, Искусства", site: "https://spbgik.ru" }
+],
+"Социально-экономический": [
+{ name: "СПбГЭУ (Финэк)", faculties: "Экономика, Менеджмент, Бизнес-информатика", site: "https://unecon.ru" },
+{ name: "СПбПУ (Политех)", faculties: "Институт промышленного менеджмента", site: "https://spbstu.ru" },
+{ name: "РАНХиГС (Президентская академия)", faculties: "Государственное и муниципальное управление", site: "https://spb.ranepa.ru" }
+]
+};
+
+const messagesDiv = document.getElementById('chatMessages');
+const optionsPanel = document.getElementById('optionsPanel');
+
+function addMessage(text, isUser = false) {
+const msgDiv = document.createElement('div');
+msgDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+msgDiv.innerHTML = text;
+messagesDiv.appendChild(msgDiv);
+messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function clearOptions() {
+optionsPanel.innerHTML = '';
+}
+
+function addOptionButton(text, onClickHandler) {
+const btn = document.createElement('button');
+btn.className = 'option-btn';
+btn.innerText = text;
+btn.addEventListener('click', onClickHandler);
+optionsPanel.appendChild(btn);
+}
+
+function resetBot() {
+step = 'idle';
+answers = [];
+userProfile = null;
+currentQuestionIndex = 0;
+messagesDiv.innerHTML = '';
+addMessage("Бот перезапущен. Нажми «Начать тест», чтобы пройти профориентацию.", false);
+clearOptions();
+addOptionButton("Начать тест", () => startTest());
+}
+
+function startTest() {
+step = 'testing';
+answers = [];
+currentQuestionIndex = 0;
+messagesDiv.innerHTML = '';
+addMessage("Отвечай на вопросы, нажимая на кнопки. Это поможет определить твой профиль.", false);
+askQuestion();
+}
+
+function askQuestion() {
+if (currentQuestionIndex >= questions.length) {
+finishTest();
+return;
+}
+const q = questions[currentQuestionIndex];
+addMessage(q.text, false);
+clearOptions();
+q.options.forEach((opt, idx) => {
+addOptionButton(opt, () => handleAnswer(idx));
+});
+}
+
+function handleAnswer(answerIndex) {
+answers.push(answerIndex);
+currentQuestionIndex++;
+askQuestion();
+}
+
+function finishTest() {
+const freq = [0, 0, 0, 0, 0];
+answers.forEach(a => { freq[a]++; });
+let maxIndex = 0;
+for (let i = 1; i < 5; i++) {
+if (freq[i] > freq[maxIndex]) maxIndex = i;
+}
+userProfile = profileMapping[maxIndex];
+addMessage(`<strong>Результат теста</strong>: твой профиль — <strong>${userProfile}</strong>.<br><br>Я подобрал для тебя варианты образования, экзамены и вузы СПб.`, false);
+step = 'result';
+clearOptions();
+addOptionButton("План экзаменов (ОГЭ и ЕГЭ)", () => showExamPlan());
+addOptionButton("Список вузов СПб", () => showUniversities());
+addOptionButton("Пройти тест заново", () => resetBot());
+}
+
+function showExamPlan() {
+if (!userProfile) return;
+const plan = examPlan[userProfile];
+if (!plan) return;
+let text = `<strong>План подготовки для профиля: ${userProfile}</strong><br><br>`;
+text += `<strong>ОГЭ (9 класс)</strong>:<br>${plan["9 класс (ОГЭ)"]}<br><br>`;
+text += `<strong>ЕГЭ (11 класс)</strong>:<br>${plan["11 класс (ЕГЭ)"]}<br><br>`;
+text += `<strong>Совет:</strong> начинай готовиться заранее, используй ФИПИ и официальные демоверсии.`;
+addMessage(text, false);
+clearOptions();
+addOptionButton("Посмотреть вузы СПб", () => showUniversities());
+addOptionButton("Вернуться в меню", () => resetBot());
+}
+
+function showUniversities() {
+if (!userProfile) return;
+const list = universitiesSPB[userProfile];
+if (!list || list.length === 0) {
+addMessage("К сожалению, для твоего профиля пока не найдены вузы, но поищи смежные направления.", false);
+} else {
+let message = `<strong>Вузы Санкт-Петербурга для профиля «${userProfile}» (и смежные направления):</strong><br><br>`;
+list.forEach(uni => {
+message += `<strong>${uni.name}</strong><br>${uni.faculties}<br><a href="${uni.site}" target="_blank">Официальный сайт</a><br><br>`;
+});
+message += "<strong>Важно:</strong> Уточняй проходные баллы и наличие бюджетных мест на официальных сайтах приёмных комиссий.";
+addMessage(message, false);
+}
+clearOptions();
+addOptionButton("План экзаменов", () => showExamPlan());
+addOptionButton("Пройти тест заново", () => resetBot());
+}
+
+document.getElementById('startBtn').addEventListener('click', () => {
+startTest();
+});
+</script>
+</body>
+</html>
